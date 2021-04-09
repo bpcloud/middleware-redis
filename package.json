@@ -1,0 +1,45 @@
+{
+  "description": "redis middleware of bpframework",
+  "dependencies": {
+    "febs": "^1.2.1",
+    "ioredis": "^4.25.0",
+    "redlock": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/ioredis": "^4.22.3",
+    "@types/redlock": "^4.0.1"
+  },
+  "directories": {},
+  "engines": {
+    "node": ">=10"
+  },
+  "homepage": "https://github.com/bpcloud/middleware-redis#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/bpcloud/middleware-redis.git"
+  },
+  "scripts": {
+    "prepublishOnly": "tsc --build tsconfig.json",
+    "build": "tsc --build tsconfig.json"
+  },
+  "keywords": [
+    "bpframework",
+    "redis"
+  ],
+  "files": [
+    "dist",
+    "types",
+    "index.js"
+  ],
+  "types": "types/index.d.ts",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "maintainers": [
+    {
+      "name": "brainpoint",
+      "email": "bpoint.lee@gmail.com"
+    }
+  ],
+  "name": "@bpframework/middleware-redis",
+  "version": "0.0.1"
+}
