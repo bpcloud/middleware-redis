@@ -6,10 +6,10 @@ const redisTemplate_1 = require("./redis/redisTemplate");
 function refreshRemoteEventlistener(ev) {
     redisTemplate_1.RedisTemplate.reconnectAll();
 }
-function default_1(app) {
-    app._addRefreshRemoteEventListener(refreshRemoteEventlistener);
-    logger_1.setLogger(() => app.getLogger());
-    config_1.setConfigApp(app);
+function default_1(app, bpApp) {
+    bpApp._addRefreshRemoteEventListener(refreshRemoteEventlistener);
+    logger_1.setLogger(() => bpApp.getLogger());
+    config_1.setConfigApp(bpApp);
 }
 exports.default = default_1;
 //# sourceMappingURL=initiator.js.map

@@ -16,9 +16,9 @@ function refreshRemoteEventlistener(ev: any/*: RefreshRemoteEvent*/) {
   RedisTemplate.reconnectAll();
 }
 
-export default function (app:any) {
-  app._addRefreshRemoteEventListener(refreshRemoteEventlistener);
+export default function (app:any, bpApp:any) {
+  bpApp._addRefreshRemoteEventListener(refreshRemoteEventlistener);
 
-  setLogger(() => app.getLogger());
-  setConfigApp(app);
+  setLogger(() => bpApp.getLogger());
+  setConfigApp(bpApp);
 }
