@@ -9,7 +9,24 @@
 
 
 const SYM_APP = Symbol('SYM_APP');
+const SYM_FINISH_CLOUDCONFIG = Symbol('SYM_FINISH_CLOUDCONFIG');
 
+export function isFinishCloudConfig(): boolean {
+  return !!(global as any)[SYM_FINISH_CLOUDCONFIG];
+}
+
+export function setFinishCloudConfig(finish: boolean): void {
+  (global as any)[SYM_FINISH_CLOUDCONFIG] = finish;
+}
+
+export function isUseCloudConfig(): boolean|undefined {
+  let l = (global as any)[SYM_APP];
+  if (l) {
+    return l.isCloudConfig();
+  } else {
+    return undefined;
+  }
+}
 
 export function getConfig():{ readonly [key: string]: any } {
   let l = (global as any)[SYM_APP];

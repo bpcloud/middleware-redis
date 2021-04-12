@@ -4,6 +4,7 @@ const logger_1 = require("./logger");
 const config_1 = require("./config");
 const redisTemplate_1 = require("./redis/redisTemplate");
 function refreshRemoteEventlistener(ev) {
+    config_1.setFinishCloudConfig(true);
     redisTemplate_1.RedisTemplate.reconnectAll();
 }
 function default_1(app, bpApp) {

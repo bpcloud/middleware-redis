@@ -25,8 +25,11 @@ class RedisTemplate {
         let cfg;
         if (args.length == 0 || typeof args[0] === 'string') {
             let configMapPrefix = args[0] ? args[0] : 'spring.redis';
-            cfg = this.readCfgFromConfig(configMapPrefix);
             this.configMapPrefix = configMapPrefix;
+            cfg = this.readCfgFromConfig(configMapPrefix);
+            if (!cfg) {
+                return;
+            }
         }
         else {
             cfg = args[0];
@@ -47,7 +50,10 @@ class RedisTemplate {
         let configs = config_1.getConfig();
         let config = configs[configMapPrefix];
         if (!config) {
-            throw new febs.exception(`config '${configMapPrefix}' miss`, febs.exception.ERROR, __filename, __line, __column);
+            if (config_1.isUseCloudConfig() !== false && !config_1.isFinishCloudConfig()) {
+                return null;
+            }
+            throw new febs.exception(`config '${configMapPrefix}' is missing`, febs.exception.ERROR, __filename, __line, __column);
         }
         cfg = {};
         cfg.db = config.database || 0;
@@ -56,7 +62,7 @@ class RedisTemplate {
         cfg.ttl = config.defaultTtl || exports.TTL_default;
         cfg.ttl_tolerance = config.defaultTtlTolerance || TTL_tolerance;
         if (!Array.isArray(config.nodes)) {
-            throw new febs.exception(`config '${configMapPrefix}.nodes' miss`, febs.exception.ERROR, __filename, __line, __column);
+            throw new febs.exception(`config '${configMapPrefix}.nodes' is missing`, febs.exception.ERROR, __filename, __line, __column);
         }
         cfg.clusterServers = [];
         for (let i = 0; i < config.nodes.length; i++) {

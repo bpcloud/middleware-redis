@@ -14,7 +14,7 @@ import { CacheTransaction } from './transaction';
 import { CacheBatch } from './batch';
 import { CacheLock } from './lock';
 import { getLogger } from '../logger';
-import { getConfig } from '../config';
+import { getConfig, isFinishCloudConfig, isUseCloudConfig } from '../config';
 
 const TTL_tolerance = 10; // ttl时间增加这个抖动范围.
 export const TTL_default = 60 * 5; // 默认5分钟.
@@ -68,8 +68,11 @@ export class RedisTemplate {
     if (args.length == 0 || typeof args[0] === 'string') {
 
       let configMapPrefix: string = args[0] ? args[0] : 'spring.redis';
-      cfg = this.readCfgFromConfig(configMapPrefix);
       this.configMapPrefix = configMapPrefix;
+      cfg = this.readCfgFromConfig(configMapPrefix);
+      if (!cfg) {
+        return;
+      }
     } else {
       cfg = args[0];
     }
@@ -92,12 +95,17 @@ export class RedisTemplate {
   }
 
   private readCfgFromConfig(configMapPrefix: string): any {
+
     let cfg: any;
     let configs = getConfig();
-      
+
     let config = configs[configMapPrefix];
     if (!config) {
-      throw new febs.exception(`config '${configMapPrefix}' miss`, febs.exception.ERROR, __filename, __line, __column);
+      if (isUseCloudConfig() !== false && !isFinishCloudConfig()) {
+        return null;
+      }
+      
+      throw new febs.exception(`config '${configMapPrefix}' is missing`, febs.exception.ERROR, __filename, __line, __column);
     }
 
     cfg = {};
@@ -108,7 +116,7 @@ export class RedisTemplate {
     cfg.ttl_tolerance = config.defaultTtlTolerance || TTL_tolerance;
 
     if (!Array.isArray(config.nodes)) {
-      throw new febs.exception(`config '${configMapPrefix}.nodes' miss`, febs.exception.ERROR, __filename, __line, __column);
+      throw new febs.exception(`config '${configMapPrefix}.nodes' is missing`, febs.exception.ERROR, __filename, __line, __column);
     }
       
     cfg.clusterServers = [] as any[];

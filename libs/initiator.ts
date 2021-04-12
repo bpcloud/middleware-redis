@@ -9,10 +9,11 @@
 */
 
 import { setLogger } from "./logger";
-import { setConfigApp } from "./config";
+import { setConfigApp, setFinishCloudConfig } from "./config";
 import { RedisTemplate } from "./redis/redisTemplate";
 
 function refreshRemoteEventlistener(ev: any/*: RefreshRemoteEvent*/) {
+  setFinishCloudConfig(true);
   RedisTemplate.reconnectAll();
 }
 
