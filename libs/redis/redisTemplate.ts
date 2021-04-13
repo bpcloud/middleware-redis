@@ -19,7 +19,23 @@ import { getConfig, isFinishCloudConfig, isUseCloudConfig } from '../config';
 const TTL_tolerance = 10; // ttl时间增加这个抖动范围.
 export const TTL_default = 60 * 5; // 默认5分钟.
 
+// contain key.
+function isContainKey(key: string): boolean {
+  let configs = getConfig();
+  for (const key1 in configs) {
+    if (key1 == key || key1.indexOf(key + '.') == 0 || key1.indexOf(key + '[') == 0) {
+      return true;
+    }
+  }
+  return false;
+}
 
+// This is the default value of `retryStrategy`
+function retryStrategy(times: number): number {
+  const delay = Math.min(times * 100, 5000);
+  return delay;
+}
+  
 /**
 * @desc: 
 *   1. 批量语句.
@@ -69,6 +85,7 @@ export class RedisTemplate {
 
       let configMapPrefix: string = args[0] ? args[0] : 'spring.redis';
       this.configMapPrefix = configMapPrefix;
+
       cfg = this.readCfgFromConfig(configMapPrefix);
       if (!cfg) {
         return;
@@ -89,7 +106,11 @@ export class RedisTemplate {
     
     cfgg.connectTimeout = cfg.conn_timeout || 0;
     this.ttl_tolerance = febs.utils.isNull(cfg.ttl_tolerance) ? TTL_tolerance : cfg.ttl_tolerance;
-
+    if (cfg.clusterServers.length == 1) {
+      cfgg.host = cfg.clusterServers[0].host;
+      cfgg.port = cfg.clusterServers[0].port;
+    }
+    
     (<any>cfgg).reconnectOnError = ()=>1;
     this.cfg = cfgg;
   }
@@ -99,8 +120,7 @@ export class RedisTemplate {
     let cfg: any;
     let configs = getConfig();
 
-    let config = configs[configMapPrefix];
-    if (!config) {
+    if (!isContainKey(configMapPrefix)) {
       if (isUseCloudConfig() !== false && !isFinishCloudConfig()) {
         return null;
       }
@@ -109,27 +129,42 @@ export class RedisTemplate {
     }
 
     cfg = {};
-    cfg.db = config.database || 0;
-    cfg.password = config.password;
-    cfg.conn_timeout = config.timeout || 0;
-    cfg.ttl = config.defaultTtl || TTL_default;
-    cfg.ttl_tolerance = config.defaultTtlTolerance || TTL_tolerance;
+    cfg.host = configs[configMapPrefix+'.host'];
+    cfg.port = configs[configMapPrefix+'.port'] || 6379;
+    cfg.db = configs[configMapPrefix+'.database'] || 0;
+    cfg.password = configs[configMapPrefix+'.password'];
+    cfg.conn_timeout = configs[configMapPrefix+'.timeout'] || 0;
+    cfg.ttl = configs[configMapPrefix+'.defaultTtl'] || TTL_default;
+    cfg.ttl_tolerance = configs[configMapPrefix+'.defaultTtlTolerance'] || TTL_tolerance;
 
-    if (!Array.isArray(config.nodes)) {
-      throw new febs.exception(`config '${configMapPrefix}.nodes' is missing`, febs.exception.ERROR, __filename, __line, __column);
+    if (!cfg.host && !isContainKey(configMapPrefix+'.cluster.nodes')) {
+      throw new febs.exception(`config '${configMapPrefix}.host' or '${configMapPrefix}.cluster.nodes' is missing`, febs.exception.ERROR, __filename, __line, __column);
     }
-      
+
     cfg.clusterServers = [] as any[];
-    for (let i = 0; i < config.nodes.length; i++) {
-      let host = {
-        host: config.nodes[i].host,
-        port: config.nodes[i].port,
-      };
-      if (typeof host.host !== 'string' || !Number.isInteger(host.port)) {
-        throw new febs.exception(`config '${configMapPrefix}.nodes' error`, febs.exception.ERROR, __filename, __line, __column);
-      }
-      cfg.clusterServers.push(host);
+
+    if (cfg.host) {
+      cfg.clusterServers.push({ host: cfg.host, port: cfg.port })
     }
+    else {
+      let nodes = configs;
+      let cc = configMapPrefix.split('.');
+      for (let i = 0; i < cc.length; i++) {
+        nodes = nodes[cc[i]];
+      }
+      nodes = nodes.cluster.nodes;
+      for (let i = 0; i < nodes.length; i++) {
+        let host = {
+          host: nodes[i].host,
+          port: nodes[i].port,
+        };
+        if (typeof host.host !== 'string' || !Number.isInteger(host.port)) {
+          throw new febs.exception(`config '${configMapPrefix}.cluster.nodes' error`, febs.exception.ERROR, __filename, __line, __column);
+        }
+        cfg.clusterServers.push(host);
+      }
+    } // if..else.
+
     return cfg;
   }
 
@@ -152,10 +187,14 @@ export class RedisTemplate {
     
     cfgg.connectTimeout = cfg.conn_timeout || 0;
     this.ttl_tolerance = febs.utils.isNull(cfg.ttl_tolerance) ? TTL_tolerance : cfg.ttl_tolerance;
+    if (cfg.clusterServers.length == 1) {
+      cfgg.host = cfg.clusterServers[0].host;
+      cfgg.port = cfg.clusterServers[0].port;
+    }
 
     (<any>cfgg).reconnectOnError = () => 1;
     
-    if (this.cfg.host == cfgg.host
+    if (this.cfg && this.cfg.host == cfgg.host
       && this.cfg.port == cfgg.port
       && this.cfg.db == cfgg.db
       && this.cfg.password == cfgg.password
@@ -197,6 +236,9 @@ export class RedisTemplate {
       connectInfo = this.cfg.host + ':' + this.cfg.port;
     }
     else {
+      if (!this.cfg.clusterServers) {
+        return;
+      }
       useCluster = true;
       this.cfg.clusterServers.forEach((element:any) => {
         connectInfo += `${element.host}:${element.port},`;
@@ -208,10 +250,10 @@ export class RedisTemplate {
         .then((res:any) => {
           this.redis_ttl = this.cfg.ttl;
           if (useCluster) {
-            this.redis = new IORedis.Cluster(this.cfg.clusterServers, {scaleReads:'slave', ...this.cfg});
+            this.redis = new IORedis.Cluster(this.cfg.clusterServers, {retryStrategy, scaleReads:'slave', ...this.cfg});
           }
           else {
-            this.redis = new IORedis(this.cfg);
+            this.redis = new IORedis({ retryStrategy, ...this.cfg });
           }
           this.redis.on('error', (e:any) => {
             getLogger().error('[Redis error]: ', e);
