@@ -13,7 +13,7 @@ https://github.com/bpcloud/middleware
 import { Application } from 'bpframework';
 import * as middleware_redis from '@bpframework/middleware-redis';
 
-Application.use(middleware_i18n.middleware)
+Application.use(middleware_redis.middleware)
 Application.runKoa(...);
 ```
 

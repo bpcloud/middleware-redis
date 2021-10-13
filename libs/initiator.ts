@@ -22,4 +22,6 @@ export default function (app:any, bpApp:any) {
 
   setLogger(() => bpApp.getLogger());
   setConfigApp(bpApp);
+  
+  return false;
 }

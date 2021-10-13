@@ -15,6 +15,6 @@ export const name = "middleware-redis";
 
 export const middleware = {
   type: 'koa',
-  name: exports.name,
+  name: name,
   initiator,
 }
