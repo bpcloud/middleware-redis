@@ -1,51 +1,51 @@
 import { RedisBatch } from "./redisBatch";
 import { RedisLock, RedisTransaction } from "./redisTransaction";
 
+/**
+ * Construct a type with a set of properties K of type T
+ */
+export type Record<K extends keyof any, T> = {
+    [P in K]: T;
+};
+
+export type KeyType = string | Buffer;
+export type ValueType = string | Buffer | number | any[];
+
 export class RedisTemplate {
-  /**
-   * 构造RedisTemplate
-   * 
-   * @description
-   * 相关的配置为:
-   * 
-   * ```properties
-        database: 0     # Redis数据库索引（默认为0)
-        host: 127.0.0.1 # 单机模式host (优先使用此配置).
-        port: 6379      # 单机模式port.
-        cluster:        # 集群模式主机信息.
-          nodes:          # Redis服务器地址列表
-          - host: 127.0.0.1
-            port: 6379
-          - host: 127.0.0.1
-            port: 6380
-          - host: 127.0.0.1
-            port: 6381
-        password:       # Redis服务器连接密码（默认为空） 
-        timeout: 0      # 连接超时时间（毫秒）
-        default-ttl:           5    # 默认的ttl; 单位秒, 默认5分钟. (默认的过期时间对hash表无效, hash需单独设置) 
-        default-ttl-tolerance: 10   # 单位秒; ttl时间增加这个抖动范围, 默认10秒
-    ```
-   * 
-   * @param configMapPrefix 指定此配置作为redis配置. 默认为 'spring.redis'
-   */
+
+  public static reconnectAll(): any;
+
   constructor(configMapPrefix?: string);
+  constructor(cfg: {
+    /** 主机信息, 多台主机则为集群模式. */
+    clusterServers: { host: string, port: number }[],
+    db: number,
+    password: string,
+    /** 秒, 默认5分钟. (默认的过期时间对hash表无效, hash需单独设置) */
+    ttl: number,
+    /** ttl时间增加这个抖动范围, 默认10秒 */
+    ttl_tolerance: number,
+    conn_timeout: number,
+  });
+
+  reconnect(): Promise<void>;
 
   /**
   * @desc: 设置指定键的超时时间.
   * @param ttl: 秒数; 不指定, 则使用默认的值.
   */
-  expire(key: string, ttl?: number): Promise<boolean>;
-  
-  /**
-  * @desc: 移除指定key的ttl, 使得key永不过期.
-  */
-  persist(key: string): Promise<boolean>;
+  expire(key: KeyType, ttl?: number): Promise<boolean>;
 
+  /**
+  * @desc: 移除指定key的ttl.
+  */
+  persist(key: KeyType): Promise<boolean>;
+  
   /**
   * @desc: 获取指定key的剩余过期时间 (秒).
   * @return: 
   */
-  ttl(key: string): Promise<number>;
+  ttl(key: KeyType): Promise<number>;
 
   /**
   * @desc: 列出匹配的keys.
@@ -64,31 +64,46 @@ export class RedisTemplate {
   *    表明是否成功设置.
   * 
   *    redis
-  * 
-  *     - 1 if field is a new field in the hash and value was set.
-  *     - 0 if field already exists in the hash and the value was updated.
+  *     1 if field is a new field in the hash and value was set.
+  *     0 if field already exists in the hash and the value was updated.
   */
-  hset(key: string, field: string, value: any): Promise<boolean>;
+  hset(key: KeyType, field: string, value: any): Promise<boolean>;
 
   /**
   * @desc: 获取hash表指定的数据.
   */
-  hget(key: string, field: string): Promise<string>;
+  hget(key: KeyType, field: string): Promise<string>;
 
+  /**
+  * @desc: 获取hash表指定key的所有字段和值.
+  */
+  hgetall(key: KeyType): Promise<Record<string, string>>;
+
+  /**
+   * 返回哈希表指定key的所有值。
+   */
+  hvals(key: KeyType): Promise<string[]>;
+
+  /**
+   * 返回哈希表字段的数量。
+   */
+  hlen(key: KeyType): Promise<number>;
+
+  
   /**
   * @desc: 获取hash表的keys.
   */
-  hkeys(key: string): Promise<string[]>;
+  hkeys(key: KeyType): Promise<string[]>;
 
   /**
   * @desc: 清理hash表指定的数据.
   */
-  hdel(key: string, ...fields: string[]): Promise<any>;
+  hdel(key: KeyType, ...fields: string[]): Promise<any>;
 
   /**
   * @desc: 指定的额feild是否存在.
   */
-  hexists(key: string, field: string): Promise<boolean>;
+  hexists(key: KeyType, field: string): Promise<boolean>;
 
   //#endregion
 
@@ -97,27 +112,27 @@ export class RedisTemplate {
   /**
   * @desc: 在集合中插入值.
   */
-  sadd(key: string, value: string): Promise<any>;
+  sadd(key: KeyType, value: ValueType): Promise<any>;
 
   /**
   * @desc: 在集合中移除指定成员.
   */
-  sremove(key: string, ...values: string[]): Promise<any>;
+  sremove(key: KeyType, ...values: string[]): Promise<any>;
 
   /**
   * @desc: 返回集合中的元素个数.
   */
-  scard(key: string): Promise<number>;
+  scard(key: KeyType): Promise<number>;
 
   /**
   * @desc: 判读是否是集合中的元素.
   */
-  sismember(key: string, value: string): Promise<boolean>;
+  sismember(key: KeyType, member: string): Promise<boolean>;
 
   /**
   * @desc: 返回集合中的所有成员.
   */
-  smembers(key: string): Promise<any>;
+  smembers(key: KeyType): Promise<any>;
 
   //#endregion
 
@@ -129,36 +144,33 @@ export class RedisTemplate {
   * @param value: 设置的值.
   * @param ttl: ttl in second, 如果指定0,则使用默认值. -1则不设置.
   */
-  set(key: string, value: any, ttl?: number): Promise<boolean>;
+  set(key: KeyType, value: ValueType, ttl?: number/* = 0 */): Promise<boolean>;
 
   /**
   * @desc: 获取指定的数据.
   */
-  get(key: string): Promise<string>;
+  get(key: KeyType): Promise<string>;
 
   /**
   * @desc: 清理指定的数据.
   */
-  del(key: string): Promise<any>;
+  del(key: KeyType): Promise<any>;
 
   /**
   * @desc: key是否存在.
   */
-  exists(key: string): Promise<boolean>;
+  exists(key: KeyType): Promise<boolean>;
 
   //#endregion
 
-  
-  //#region 事务及批量处理.
+
+  //#region 事务.
 
   /**
   * @desc: 开始事务.
-  * 
-  * ```javascript
   *   cache.multi()
   *        .set('key', 'value')
   *        .exec((e, res)=>{ });
-  * ```
   */
   multi(): RedisTransaction;
 
@@ -170,15 +182,17 @@ export class RedisTemplate {
   */
   lock(resource: string, maxTTL2Lock: number): Promise<RedisLock>;
 
-  
+  //#endregion
+
+
+
+  //#region 批量处理.
+
   /**
-  * @desc: 开始批量处理.
-  * 
-  * ```javascript
+  * @desc: 开始事务.
   *   cache.batch()
   *        .set('key', 'value')
   *        .exec((e, res)=>{ });
-  * ```
   */
   batch(): RedisBatch;
 

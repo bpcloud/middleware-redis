@@ -20,7 +20,7 @@ const config_1 = require("../config");
 const TTL_tolerance = 10;
 exports.TTL_default = 60 * 5;
 function isContainKey(key) {
-    let configs = config_1.getConfig();
+    let configs = (0, config_1.getConfig)();
     for (const key1 in configs) {
         if (key1 == key || key1.indexOf(key + '.') == 0 || key1.indexOf(key + '[') == 0) {
             return true;
@@ -33,6 +33,11 @@ function retryStrategy(times) {
     return delay;
 }
 class RedisTemplate {
+    static reconnectAll() {
+        for (let i = 0; i < this.instances.length; i++) {
+            this.instances[i].reconnect().then();
+        }
+    }
     constructor(...args) {
         RedisTemplate.instances.push(this);
         let cfg;
@@ -57,16 +62,11 @@ class RedisTemplate {
         cfgg.reconnectOnError = () => 1;
         this.cfg = cfgg;
     }
-    static reconnectAll() {
-        for (let i = 0; i < this.instances.length; i++) {
-            this.instances[i].reconnect().then();
-        }
-    }
     readCfgFromConfig(configMapPrefix) {
         let cfg;
-        let configs = config_1.getConfig();
+        let configs = (0, config_1.getConfig)();
         if (!isContainKey(configMapPrefix)) {
-            if (config_1.isUseCloudConfig() !== false && !config_1.isFinishCloudConfig()) {
+            if ((0, config_1.isUseCloudConfig)() !== false && !(0, config_1.isFinishCloudConfig)()) {
                 return null;
             }
             throw new febs.exception(`config '${configMapPrefix}' is missing`, febs.exception.ERROR, __filename, __line, __column);
@@ -174,10 +174,10 @@ class RedisTemplate {
                         this.redis = new IORedis(Object.assign({ retryStrategy }, this.cfg));
                     }
                     this.redis.on('error', (e) => {
-                        logger_1.getLogger().error('[Redis error]: ', e);
+                        (0, logger_1.getLogger)().error('[Redis error]: ', e);
                     });
                     let on_connect = () => {
-                        logger_1.getLogger().info('[Redis connected]: ' + `${connectInfo}`);
+                        (0, logger_1.getLogger)().info('[Redis connected]: ' + `${connectInfo}`);
                     };
                     this.redis.once('connect', () => {
                         on_connect();
@@ -185,7 +185,7 @@ class RedisTemplate {
                         this.redis.on('connect', on_connect);
                     });
                     this.redis.on('reconnecting', () => {
-                        logger_1.getLogger().warn('[Redis reconnect]: ' + `${connectInfo}`);
+                        (0, logger_1.getLogger)().warn('[Redis reconnect]: ' + `${connectInfo}`);
                     });
                 });
             });
@@ -248,6 +248,22 @@ class RedisTemplate {
         });
     }
     ;
+    hgetall(key) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.slaveNode.hgetall(key);
+        });
+    }
+    ;
+    hvals(key) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.slaveNode.hvals(key);
+        });
+    }
+    hlen(key) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.slaveNode.hlen(key);
+        });
+    }
     hkeys(key) {
         return __awaiter(this, void 0, void 0, function* () {
             return this.slaveNode.hkeys(key);
@@ -279,9 +295,9 @@ class RedisTemplate {
             return this.slaveNode.scard(key);
         });
     }
-    sismember(key, value) {
+    sismember(key, member) {
         return __awaiter(this, void 0, void 0, function* () {
-            return this.slaveNode.sismember(key, value).then((res) => !!res);
+            return this.slaveNode.sismember(key, member).then((res) => !!res);
         });
     }
     smembers(key) {
@@ -289,8 +305,8 @@ class RedisTemplate {
             return this.slaveNode.smembers(key);
         });
     }
-    set(key, value, ttl = 0) {
-        return __awaiter(this, void 0, void 0, function* () {
+    set(key_1, value_1) {
+        return __awaiter(this, arguments, void 0, function* (key, value, ttl = 0) {
             ttl = ttl || this.redis_ttl + Math.floor(Math.random() * this.ttl_tolerance);
             if (ttl == -1) {
                 return this.masterNode.set(key, value).then((res) => !!res);

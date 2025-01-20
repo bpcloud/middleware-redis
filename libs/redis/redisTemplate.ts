@@ -15,6 +15,7 @@ import { CacheBatch } from './batch';
 import { CacheLock } from './lock';
 import { getLogger } from '../logger';
 import { getConfig, isFinishCloudConfig, isUseCloudConfig } from '../config';
+import * as redisTType from '../../types/redisTemplate';
 
 const TTL_tolerance = 10; // ttl时间增加这个抖动范围.
 export const TTL_default = 60 * 5; // 默认5分钟.
@@ -289,7 +290,7 @@ export class RedisTemplate {
   * @desc: 设置指定键的超时时间.
   * @param ttl: 秒数; 不指定, 则使用默认的值.
   */
-  async expire(key:string, ttl?:number):Promise<boolean> {
+  async expire(key:redisTType.KeyType, ttl?:number):Promise<boolean> {
     let tolerance = Math.floor(Math.random() * this.ttl_tolerance);
 
     return this.masterNode.expire(key, ttl?ttl:(this.redis_ttl + tolerance))
@@ -301,7 +302,7 @@ export class RedisTemplate {
   /**
   * @desc: 移除指定key的ttl.
   */
-  async persist(key:string):Promise<boolean> {
+  async persist(key:redisTType.KeyType):Promise<boolean> {
     return this.masterNode.persist(key)
     .then((res:any)=>{
       return true;
@@ -315,7 +316,7 @@ export class RedisTemplate {
   * @desc: 获取指定key的剩余过期时间 (秒).
   * @return: 
   */
-  async ttl(key:string):Promise<number> {
+  async ttl(key:redisTType.KeyType):Promise<number> {
     return await this.masterNode.ttl(key);
   }
 
@@ -341,7 +342,7 @@ export class RedisTemplate {
   *     1 if field is a new field in the hash and value was set.
   *     0 if field already exists in the hash and the value was updated.
   */
-  async hset(key:string, field:string, value:any):Promise<boolean> {
+  async hset(key:redisTType.KeyType, field:string, value:any):Promise<boolean> {
     return this.masterNode.hset(key, field, value)
       .then((res:any) => {
         return true;
@@ -354,28 +355,50 @@ export class RedisTemplate {
   /**
   * @desc: 获取hash表指定的数据.
   */
-  async hget(key:string, field:string):Promise<string> {
+  async hget(key:redisTType.KeyType, field:string):Promise<string> {
     return this.slaveNode.hget(key, field);
   };
 
   /**
+  * @desc: 获取hash表指定key的所有字段和值.
+  */
+  async hgetall(key:redisTType.KeyType):Promise<redisTType.Record<string, string>> {
+    return this.slaveNode.hgetall(key);
+  };
+
+  /**
+   * 返回哈希表指定key的所有值。
+   */
+  async hvals(key: redisTType.KeyType): Promise<string[]> {
+    return this.slaveNode.hvals(key);
+  }
+
+  /**
+   * 返回哈希表字段的数量。
+   */
+  async hlen(key: redisTType.KeyType): Promise<number> {
+    return this.slaveNode.hlen(key);
+  }
+
+  
+  /**
   * @desc: 获取hash表的keys.
   */
-  async hkeys(key:string):Promise<string[]> {
+  async hkeys(key:redisTType.KeyType):Promise<string[]> {
     return this.slaveNode.hkeys(key);
   }
 
   /**
   * @desc: 清理hash表指定的数据.
   */
-  async hdel(key:string, ...fields:string[]):Promise<any> {
+  async hdel(key:redisTType.KeyType, ...fields:string[]):Promise<any> {
     return this.masterNode.hdel(key, ...fields);
   };
 
   /**
   * @desc: 指定的额feild是否存在.
   */
-  async hexists(key:string, field:string):Promise<boolean> {
+  async hexists(key:redisTType.KeyType, field:string):Promise<boolean> {
     return this.slaveNode.hexists(key, field).then((res:any)=>!!res);
   }
 
@@ -386,35 +409,35 @@ export class RedisTemplate {
   /**
   * @desc: 在集合中插入值.
   */
-  async sadd(key:string, value:string):Promise<any> {
+  async sadd(key:redisTType.KeyType, value:redisTType.ValueType):Promise<any> {
     return this.masterNode.sadd(key, value);
   }
 
   /**
   * @desc: 在集合中移除指定成员.
   */
-  async sremove(key:string, ...values:string[]):Promise<any> {
+  async sremove(key:redisTType.KeyType, ...values:string[]):Promise<any> {
     return this.masterNode.srem(key, ...values);
   }
 
   /**
   * @desc: 返回集合中的元素个数.
   */
-  async scard(key:string):Promise<number> {
+  async scard(key:redisTType.KeyType):Promise<number> {
     return this.slaveNode.scard(key);
   }
 
   /**
   * @desc: 判读是否是集合中的元素.
   */
-  async sismember(key:string, value:string):Promise<boolean> {
-    return this.slaveNode.sismember(key, value).then((res:any)=>!!res);
+  async sismember(key:redisTType.KeyType, member:string):Promise<boolean> {
+    return this.slaveNode.sismember(key, member).then((res:any)=>!!res);
   }
 
   /**
   * @desc: 返回集合中的所有成员.
   */
-  async smembers(key:string):Promise<any> {
+  async smembers(key:redisTType.KeyType):Promise<any> {
     return this.slaveNode.smembers(key);
   }
 
@@ -428,7 +451,7 @@ export class RedisTemplate {
   * @param value: 设置的值.
   * @param ttl: ttl in second, 如果指定0,则使用默认值. -1则不设置.
   */
-  async set(key:string, value:any, ttl:number = 0):Promise<boolean> {
+  async set(key:redisTType.KeyType, value:redisTType.ValueType, ttl:number = 0):Promise<boolean> {
     ttl = ttl || this.redis_ttl + Math.floor(Math.random() * this.ttl_tolerance);
     if (ttl == -1) {
       return this.masterNode.set(key, value).then((res:any)=>!!res);
@@ -441,21 +464,21 @@ export class RedisTemplate {
   /**
   * @desc: 获取指定的数据.
   */
-  async get(key:string):Promise<string> {
+  async get(key:redisTType.KeyType):Promise<string> {
     return this.slaveNode.get(key);
   };
 
   /**
   * @desc: 清理指定的数据.
   */
-  async del(key:string):Promise<any> {
+  async del(key:redisTType.KeyType):Promise<any> {
     return this.masterNode.del(key);
   };
 
   /**
   * @desc: key是否存在.
   */
-  async exists(key:string):Promise<boolean> {
+  async exists(key:redisTType.KeyType):Promise<boolean> {
     return this.slaveNode.exists(key).then((res:any)=>!!res);
   }
 
